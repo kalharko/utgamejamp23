@@ -6,9 +6,9 @@ class Engine():
     def __init__(self) -> None:
         self.power = 0
         self.shipPosition = 0
-        self.f1Curve = [8, 2, 1, 1, 1]
-        self.f2Curve = [8, 8, 8, 1, 1]
-        self.f3Curve = [8, 8, 8, 8, 8]
+        self.f1Curve = [0, 0, 0, 0, 0]
+        self.f2Curve = [0, 0, 0, 0, 0]
+        self.f3Curve = [0, 0, 0, 0, 0]
         self.f1Stock = 100
         self.f2Stock = 100
         self.f3Stock = 100
