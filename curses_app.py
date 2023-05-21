@@ -144,10 +144,10 @@ class CursesApp():
 
     def input(self):
         key = self.screen.getch()
-        unKey = curses.unctrl(key)
-        strKey = str(unKey).lstrip("b'").rstrip("'")
         if key == -1:
             return -1
+        unKey = curses.unctrl(key)
+        strKey = str(unKey).lstrip("b'").rstrip("'")
 
         # text input
         if key in self.ALPHA:
