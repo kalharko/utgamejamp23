@@ -13,7 +13,6 @@ from utils import linspace
 class CursesApp():
     def __init__(self, stdscr):
         # encoding
-        locale.setlocale(locale.LC_ALL, 'fr_FR.UTF-8')
         self.code = locale.getpreferredencoding()
         curses.curs_set(0)
 
