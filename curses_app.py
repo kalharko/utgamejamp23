@@ -7,6 +7,7 @@ from math import floor
 from engine import Engine
 from random import choice
 import pymunk as pymunk
+from utils import linspace
 
 
 class CursesApp():
@@ -20,17 +21,11 @@ class CursesApp():
         self.TARGET_FPS = 15
         self.MIN_HEIGHT = 40
         self.MIN_WIDTH = 150
-        self.ALPHA = tuple([ord(x) for x in 'abcdefghijklmnopqrstuvwxyz 1234567890'])
+        self.ALPHA = tuple([ord(x) for x in 'abcdefghijklmnopqrstuvwxyz 1234567890['])
         self.BG = []
         with open('Assets/background.txt', 'r', encoding='utf-8') as file:
             for line in file.readlines():
                 self.BG.append(line.rstrip('\n'))
-        self.BASE_MASK = [[False for x in range(156)] for y in range(40)]
-        with open('Assets/mask_base.txt', 'r', encoding='utf-8') as file:
-            for y, line in enumerate(file.readlines()):
-                for x, character in enumerate(line.rstrip('\n')):
-                    if character != ' ':
-                        self.BASE_MASK[y][x] = True
 
         # color pairs
         curses.init_pair(1, curses.COLOR_WHITE, 0)  # white
@@ -55,6 +50,9 @@ class CursesApp():
             'quit': self.quit,
             'start': self.engine.start,
             'stop': self.engine.stop,
+            'f1': self.engine.set_curve,
+            'f2': self.engine.set_curve,
+            'f3': self.engine.set_curve,
         }
 
         # byproducts
@@ -62,26 +60,20 @@ class CursesApp():
         self.space.gravity = (0, 40)
 
         self.staticLines = []
-        for pos in [((0, 0), (0, 40)),
-                    ((0, 0), (156, 0)),
-                    ((0, 40), (156, 40)),
-                    ((156, 0), (156, 40)),
-                    ((0, 14), (71, 14))]:
+        for pos in [((-1, 0), (-1, 40)),
+                    ((0, -1), (156, -1)),
+                    ((0, 41), (156, 41)),
+                    ((157, 0), (157, 40)),
+                    ((0, 15), (71, 15))]:
             body = pymunk.Body(body_type=pymunk.Body.STATIC)
-            shape = pymunk.Segment(self.space.static_body, pos[0], pos[1], 1)
-            shape.friction = 0.2
+            shape = pymunk.Segment(self.space.static_body, pos[0], pos[1], 2)
+            shape.friction = 0.1
+            shape.elasticity = 0.9
             self.space.add(body, shape)
             self.staticLines.append((body, shape))
 
         self.byproducts = []
         self.bpRepresentation = []
-        self.add_byproduct((9, 5))
-        self.add_byproduct((9, 5))
-        self.add_byproduct((9, 5))
-        self.add_byproduct((9, 5))
-        self.add_byproduct((9, 5))
-        self.add_byproduct((9, 5))
-        self.add_byproduct((9, 5))
 
         # check screen size
         self.size_adjust()
@@ -102,16 +94,15 @@ class CursesApp():
         while self.app_is_running:
             # frame rate control
             if (delta := time.time() - last_frame_date) < 1 / self.TARGET_FPS:
-                time.sleep((1 / self.TARGET_FPS - delta) / 3)
-                self.space.step((1 / self.TARGET_FPS - delta) / 3)
-                time.sleep((1 / self.TARGET_FPS - delta) / 3)
-                self.space.step((1 / self.TARGET_FPS - delta) / 3)
-                time.sleep((1 / self.TARGET_FPS - delta) / 3)
-                self.space.step((1 / self.TARGET_FPS - delta) / 3)
+                for i in range(4):
+                    time.sleep((1 / self.TARGET_FPS - delta) / 4)
+                    self.space.step((1 / self.TARGET_FPS - delta) / 4)
+            delta = time.time() - last_frame_date
             last_frame_date = time.time()
 
             # update
-            self.update(delta)
+            if (err := self.update(delta)) is not None:
+                exit('\n' + err + '\n')
             self.display()
 
             # input
@@ -134,14 +125,22 @@ class CursesApp():
 
     def update(self, dt):
         # engine
-        self.engine.update(dt)
+        nb_new_byproducts = self.engine.update(dt)
+        for i in range(nb_new_byproducts):
+            self.add_byproduct((9, 5))
 
         # byproducts
         for bp in self.byproducts:
             bp.body.apply_force_at_local_point((self.engine.aX, self.engine.aY))
 
-        # simulation
-        # self.space.step(dt)
+        # end game
+        if self.engine.oxygen < 0:
+            return 'You ran out of oxygen, game over'
+        if self.engine.shipPosition >= 94:
+            if self.engine.speed < 50:
+                return 'You reached your destination, you are able to repair your ship and continue on your journey'
+            elif self.engine.shipPosition > 110:
+                return 'You over shot your destination because your speed was too great, you will now drift in space until the end of times'
 
     def input(self):
         key = self.screen.getch()
@@ -171,7 +170,7 @@ class CursesApp():
 
         # input validation
         elif strKey == '^J':  # cariage return
-            args = self.user_input.split(' ')
+            args = [x.lower() for x in self.user_input.split(' ')]
             if args[0] in self.commands:
                 self.commands[args[0]](args)
             self.user_input = ''
@@ -191,8 +190,15 @@ class CursesApp():
         self.screen.addstr(38, 5, self.user_input[:self.cursor_position] + '|' + self.user_input[self.cursor_position:])
 
         # power
-        for y in range(int(self.engine.power * 34 // 100)):
+        for y in range(int(self.engine.power * 6.6 * 34 // 100)):
             self.screen.addstr(36 - y, 151, '▇▇')
+
+        for y in range(9):
+            self.screen.addstr(34 - y, int(4 + self.engine.power * 4.3 * 65 // 100), '╮', curses.color_pair(5))
+        for y in range(9):
+            self.screen.addstr(22 - y, int(4 + self.engine.power * 4.3 * 65 // 100), '╮', curses.color_pair(5))
+        for y in range(9):
+            self.screen.addstr(22 - y, int(76 + self.engine.power * 4.3 * 65 // 100), '╮', curses.color_pair(5))
 
         # stocks
         for y in range(int(self.engine.f1Stock * 8 // 100)):
@@ -204,7 +210,29 @@ class CursesApp():
         for y in range(int(self.engine.oxygen * 8 // 100)):
             self.screen.addstr(10 - y, 138, '▇▇')
 
+        # informations
+        self.screen.addstr(7, 88, str(round(self.engine.temperature, 3)))
+        self.screen.addstr(6, 90, self.engine.status)
+        self.screen.addstr(27, 126, str(round(self.engine.speed, 4)))
+
+        # debug
+        self.screen.addstr(2, 59, str(round(self.engine.last_f1, 4)))
+        self.screen.addstr(3, 59, str(round(self.engine.last_f2, 4)))
+        self.screen.addstr(4, 59, str(round(self.engine.last_f3, 4)))
+        self.screen.addstr(5, 59, str(round(self.engine.last_f4, 4)))
+
         # curve f1
+        f1c = []
+        f2c = []
+        f3c = []
+        for out, inc in zip((f1c, f2c, f3c), (self.engine.f1Curve, self.engine.f2Curve, self.engine.f3Curve)):
+            for i in range(4):
+                out += list(linspace(inc[i], inc[i + 1], 16))
+            out += [inc[-1]]
+        for yStart, xRange, curve in zip((35, 23, 23), (list(range(4, 69)), list(range(4, 69)), list(range(76, 141))), (f1c, f2c, f3c)):
+            for x, y in zip(xRange, curve):
+                self.screen.addstr(yStart - int(y), int(x), '◦')
+
         for x, y in zip((4, 20, 36, 52, 68), self.engine.f1Curve):
             self.screen.addstr(35 - y, x, 'o')
 
@@ -216,27 +244,27 @@ class CursesApp():
         for x, y in zip((4, 20, 36, 52, 68), self.engine.f3Curve):
             self.screen.addstr(23 - y, x + 72, 'o')
 
-        # map
-        progress = self.engine.shipPosition * 63 // 100
-        self.screen.addstr(int(27 + progress // 9), int(79 + progress), '▶', curses.color_pair(4))
-
-        self.screen.refresh()
-
         # byproducts
         for bp, representation in zip(self.byproducts, self.bpRepresentation):
             self.screen.addstr(floor(bp.body.position[1]), floor(bp.body.position[0]), representation[0], curses.color_pair(representation[1]))
-            # with open('log.txt', 'a') as file:
-            #     file.write(str(floor(bp.body.position[1])) + ' ' + str(floor(bp.body.position[0])) + '\n')
+
+        # map
+        progress = self.engine.shipPosition * 61 // 100
+        self.screen.addstr(int(27 + progress // 7), int(79 + progress), '▶', curses.color_pair(4))
+
+        # refresh
+        self.screen.refresh()
 
     def add_byproduct(self, position):
         body = pymunk.Body(10, 100)
         body.position = position
         shape = pymunk.Circle(body, 1, (0, 0))
-        shape.friction = 0.5
+        shape.friction = 0.1
+        shape.elasticity = 0.6
         shape.collision_type = 2
         self.space.add(body, shape)
         self.byproducts.append(shape)
         self.bpRepresentation.append((choice(('▤', '▣', '◉', '◬', '◍')), choice((1, 2, 3, 4, 5))))
 
-    def quit(self):
+    def quit(self, args):
         self.app_is_running = False
