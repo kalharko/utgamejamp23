@@ -152,18 +152,18 @@ class CursesApp():
         if key in self.ALPHA:
             self.user_input = self.user_input[:self.cursor_position] + strKey + self.user_input[self.cursor_position:]
             self.cursor_position += 1
-        elif strKey == '^H':  # backspace
+        elif strKey in ('^H', '^G'):  # backspace
             if self.cursor_position > 0:
                 self.user_input = self.user_input[:self.cursor_position - 1] + self.user_input[self.cursor_position:]
                 self.cursor_position -= 1
-        elif strKey == '\\x02':  # down arrow
+        elif strKey in ('\\x02', '^B'):  # down arrow
             self.cursor_position = len(self.user_input)
-        elif strKey == '\\x03':  # up arrow
+        elif strKey in ('\\x03', '^C'):  # up arrow
             self.cursor_position = 0
-        elif strKey == '\\x04':  # left arrow
+        elif strKey in ('\\x04', '^D'):  # left arrow
             if self.cursor_position > 0:
                 self.cursor_position -= 1
-        elif strKey == '\\x05':  # right arrow
+        elif strKey in ('\\x05', '^E'):  # right arrow
             if self.cursor_position < len(self.user_input):
                 self.cursor_position += 1
 

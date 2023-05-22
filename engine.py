@@ -81,7 +81,8 @@ class Engine():
             # remaining reagents
             self.oxygen -= f4
             byproducts += f1
-            byproducts += f3
+            byproducts += f2 * 0.5
+            byproducts += f3 * 1.5
             self.last_f1 = f1 * 10
             self.last_f2 = f2 * 10
             self.last_f3 = f3 * 10
@@ -127,6 +128,8 @@ class Engine():
     def set_curve(self, args):
         if args[1] == 'full' or args[1] == 'f':
             if len(args) != 7:
+                return
+            if [x in '012345678' for x in args[2:]] != [True for x in range(len(args[2:]))]:
                 return
             newCurve = [int(x) for x in args[2:]]
             if [0 <= x <= 8 for x in newCurve] != [True for x in range(len(self.f1Curve))]:
